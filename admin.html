@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>لوحة التحكم — المتجر</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#0d1117;color:#e6edf3;min-height:100vh}
+.bar{background:#161b22;border-bottom:1px solid #30363d;padding:12px 20px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:100}
+.bar h1{font-size:1rem;color:#f4d03f;margin-left:auto}
+.bar span{font-size:.8rem;color:#8b949e}
+.sbtn{background:linear-gradient(135deg,#238636,#196127);color:#fff;border:none;padding:7px 16px;border-radius:7px;cursor:pointer;font-size:.85rem;font-weight:bold}
+.sbtn:disabled{opacity:.5;cursor:not-allowed}
+.wrap{display:flex;min-height:calc(100vh - 48px)}
+.nav{width:180px;background:#161b22;border-left:1px solid #30363d;padding:12px 0;flex-shrink:0}
+.nav a{display:block;padding:9px 18px;color:#8b949e;text-decoration:none;font-size:.85rem;cursor:pointer}
+.nav a:hover,.nav a.on{background:#21262d;color:#f4d03f;border-right:2px solid #f4d03f}
+.main{flex:1;padding:20px;overflow-y:auto}
+.sec{display:none}.sec.on{display:block}
+.stitle{font-size:1.1rem;font-weight:bold;margin-bottom:16px;color:#f4d03f;border-bottom:1px solid #30363d;padding-bottom:8px}
+.pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
+.pc{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:14px}
+.pc h3{font-size:.9rem;color:#58a6ff;margin-bottom:10px}
+.pimg{width:100%;height:140px;object-fit:cover;border-radius:6px;margin-bottom:8px;background:#21262d;display:block}
+.f{margin-bottom:8px}
+.f label{display:block;font-size:.73rem;color:#8b949e;margin-bottom:3px}
+.f input,.f textarea{width:100%;background:#21262d;border:1px solid #30363d;border-radius:5px;padding:6px 9px;color:#e6edf3;font-size:.82rem;font-family:inherit}
+.f textarea{resize:vertical;min-height:55px}
+.f input:focus,.f textarea:focus{outline:none;border-color:#58a6ff}
+.ltabs{display:flex;gap:3px;margin-bottom:8px}
+.lt{padding:3px 9px;border-radius:5px;border:1px solid #30363d;background:transparent;color:#8b949e;cursor:pointer;font-size:.73rem}
+.lt.on{background:#f4d03f;color:#000;border-color:#f4d03f;font-weight:bold}
+.lc{display:none}.lc.on{display:block}
+.toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#238636;color:#fff;padding:10px 20px;border-radius:7px;z-index:999;opacity:0;transition:.3s}
+.toast.show{opacity:1}
+.tsec{background:#161b22;border:1px solid #e63946;border-radius:10px;padding:16px;margin-bottom:16px}
+.tsec h3{color:#e63946;margin-bottom:8px;font-size:.95rem}
+</style>
+</head>
+<body>
+<div class="bar">
+  <span>🏪</span>
+  <span id="st">جاري التحميل...</span>
+  <h1>لوحة تحكم المتجر</h1>
+  <button class="sbtn" id="sb" onclick="save()" disabled>💾 حفظ</button>
+</div>
+<div class="wrap">
+  <div class="nav">
+    <a class="on" onclick="show('p',this)">📦 المنتجات</a>
+    <a onclick="show('h',this)">🦸 الهيرو</a>
+    <a onclick="show('s',this)">📖 القصة</a>
+    <a onclick="show('cfg',this)">⚙️ الإعدادات</a>
+  </div>
+  <div class="main">
+    <div id="sp" class="sec on">
+      <div class="stitle">📦 المنتجات</div>
+      <div class="pgrid" id="pg"></div>
+    </div>
+    <div id="sh" class="sec">
+      <div class="stitle">🦸 الهيرو</div>
+      <div id="hg"></div>
+    </div>
+    <div id="ss" class="sec">
+      <div class="stitle">📖 القصة</div>
+      <div id="sg"></div>
+    </div>
+    <div id="scfg" class="sec">
+      <div class="stitle">⚙️ الإعدادات</div>
+      <div class="tsec">
+        <h3>🔑 GitHub Token</h3>
+        <div class="f"><label>Personal Access Token</label>
+        <input type="password" id="tk" placeholder="ghp_..."/></div>
+        <button onclick="saveTk()" style="background:#e63946;color:#fff;border:none;padding:7px 14px;border-radius:7px;cursor:pointer">حفظ</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+var PAT=localStorage.getItem('sad_tk')||'',sha='',fc='';
+var D={imgs:[],prices:[],T:{ar:{prods:[]},en:{prods:[]},de:{prods:[]}}};
+
+function show(n,el){
+  document.querySelectorAll('.sec').forEach(s=>s.classList.remove('on'));
+  document.querySelectorAll('.nav a').forEach(a=>a.classList.remove('on'));
+  document.getElementById('s'+n).classList.add('on');
+  if(el)el.classList.add('on');
+}
+
+function toast(m,e){
+  var t=document.getElementById('toast');
+  t.textContent=m;t.style.background=e?'#e63946':'#238636';
+  t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000);
+}
+
+function saveTk(){
+  var v=document.getElementById('tk').value.trim();
+  if(v){PAT=v;localStorage.setItem('sad_tk',v);toast('تم حفظ Token');load();}
+}
+
+async function load(){
+  if(!PAT){document.getElementById('st').textContent='⚠️ أدخل Token';show('cfg',document.querySelector('.nav a:last-child'));return;}
+  document.getElementById('st').textContent='جاري...';
+  try{
+    var r=await fetch('https://api.github.com/repos/abdulrahman198/store/contents/index.html',{headers:{'Authorization':'Bearer '+PAT}});
+    var d=await r.json();sha=d.sha;
+    fc=decodeURIComponent(escape(atob(d.content.replace(/
+/g,''))));
+    var im=fc.match(/var productImages = [([sS]*?)];/);
+    if(im)D.imgs=im[1].match(/'([^']+)'/g)?.map(s=>s.replace(/'/g,''))||[];
+    var pr=fc.match(/var prices = [([sS]*?)];/);
+    if(pr)D.prices=pr[1].match(/d+/g)?.map(Number)||[];
+    ['ar','en','de'].forEach(l=>{
+      var pm=fc.match(new RegExp(l+':[\s\S]*?products:\s*\[([\s\S]*?)\]','m'));
+      if(pm){var ps=[];for(var it of pm[1].matchAll(/{name:'([^']*)',s*desc:'([^']*)'}/g))ps.push({name:it[1],desc:it[2]});D.T[l].prods=ps;}
+      var ht=fc.match(new RegExp(l+":[\s\S]*?hero_title:'([^']*)'"));
+      var hs=fc.match(new RegExp(l+":[\s\S]*?hero_sub:'([^']*)'"));
+      var st=fc.match(new RegExp(l+":[\s\S]*?story_title:'([^']*)'"));
+      var sx=fc.match(new RegExp(l+":[\s\S]*?story_text:'([^']*)'"));
+      D.T[l].ht=ht?ht[1]:'';D.T[l].hs=hs?hs[1]:'';D.T[l].st=st?st[1]:'';D.T[l].sx=sx?sx[1]:'';
+    });
+    renderP();renderH();renderS();
+    document.getElementById('st').textContent='✅ جاهز';
+    document.getElementById('sb').disabled=false;
+  }catch(e){document.getElementById('st').textContent='❌ '+e.message;toast('فشل: '+e.message,1);}
+}
+
+function renderP(){
+  var g=document.getElementById('pg'),h='';
+  for(var i=0;i<6;i++){
+    var img=D.imgs[i]||'',p=D.prices[i]||0;
+    h+='<div class="pc"><h3>🛍️ منتج '+(i+1)+'</h3>';
+    h+='<img id="pi'+i+'" class="pimg" src="'+img+'" onerror="this.src=''"/>';
+    h+='<div class="f"><label>رابط الصورة</label><input id="ii'+i+'" value="'+img+'" oninput="document.getElementById('pi'+i+'').src=this.value"/></div>';
+    h+='<div class="f"><label>السعر ($)</label><input type="number" id="ip'+i+'" value="'+p+'" style="max-width:80px"/></div>';
+    h+='<div class="ltabs"><button class="lt on" onclick="sl(this,'+i+','ar')">ع</button><button class="lt" onclick="sl(this,'+i+','en')">EN</button><button class="lt" onclick="sl(this,'+i+','de')">DE</button></div>';
+    ['ar','en','de'].forEach(l=>{
+      var pd=D.T[l].prods[i]||{};
+      h+='<div class="lc'+(l=='ar'?' on':'')+'" id="lc'+i+l+'">';
+      h+='<div class="f"><label>الاسم</label><input id="in'+i+l+'" value="'+(pd.name||'')+'"/></div>';
+      h+='<div class="f"><label>الوصف</label><textarea id="id'+i+l+'">'+(pd.desc||'')+'</textarea></div></div>';
+    });
+    h+='</div>';
+  }
+  g.innerHTML=h;
+}
+
+function renderH(){
+  var g=document.getElementById('hg'),h='';
+  ['ar','en','de'].forEach(l=>{
+    var nm={ar:'عربي',en:'English',de:'Deutsch'}[l];
+    h+='<div style="margin-bottom:16px"><h3 style="color:#58a6ff;margin-bottom:10px">'+nm+'</h3>';
+    h+='<div class="f"><label>عنوان الهيرو</label><input id="iht'+l+'" value="'+(D.T[l].ht||'')+'"/></div>';
+    h+='<div class="f"><label>نص الهيرو</label><textarea id="ihs'+l+'">'+(D.T[l].hs||'')+'</textarea></div></div>';
+  });
+  g.innerHTML=h;
+}
+
+function renderS(){
+  var g=document.getElementById('sg'),h='';
+  ['ar','en','de'].forEach(l=>{
+    var nm={ar:'عربي',en:'English',de:'Deutsch'}[l];
+    h+='<div style="margin-bottom:16px"><h3 style="color:#58a6ff;margin-bottom:10px">'+nm+'</h3>';
+    h+='<div class="f"><label>عنوان القصة</label><input id="ist'+l+'" value="'+(D.T[l].st||'')+'"/></div>';
+    h+='<div class="f"><label>نص القصة</label><textarea id="isx'+l+'" style="min-height:80px">'+(D.T[l].sx||'')+'</textarea></div></div>';
+  });
+  g.innerHTML=h;
+}
+
+function sl(btn,i,l){
+  var c=btn.closest('.pc');
+  c.querySelectorAll('.lt').forEach(b=>b.classList.remove('on'));
+  c.querySelectorAll('.lc').forEach(t=>t.classList.remove('on'));
+  btn.classList.add('on');
+  document.getElementById('lc'+i+l).classList.add('on');
+}
+
+async function save(){
+  var btn=document.getElementById('sb');
+  btn.disabled=true;btn.textContent='⏳ ...';
+  var ni=[],np=[];
+  for(var i=0;i<6;i++){ni.push(document.getElementById('ii'+i).value);np.push(parseInt(document.getElementById('ip'+i).value)||0);}
+  var nt={ar:{prods:[]},en:{prods:[]},de:{prods:[]}};
+  ['ar','en','de'].forEach(l=>{
+    for(var i=0;i<6;i++)nt[l].prods.push({name:document.getElementById('in'+i+l)?.value||'',desc:document.getElementById('id'+i+l)?.value||''});
+    nt[l].ht=document.getElementById('iht'+l)?.value||'';
+    nt[l].hs=document.getElementById('ihs'+l)?.value||'';
+    nt[l].st=document.getElementById('ist'+l)?.value||'';
+    nt[l].sx=document.getElementById('isx'+l)?.value||'';
+  });
+  var u=fc;
+  u=u.replace(/var productImages = [[sS]*?];/,'var productImages = [
+'+ni.map(x=>"	'"+x+"'").join(',
+')+'
+];');
+  u=u.replace(/var prices = [[sS]*?];/,'var prices = ['+np.join(', ')+'];');
+  ['ar','en','de'].forEach(l=>{
+    for(var i=0;i<6;i++){
+      var o=D.T[l].prods[i]||{},n=nt[l].prods[i];
+      if(o.name)u=u.replace("name:'"+o.name+"'","name:'"+n.name+"'");
+      if(o.desc)u=u.replace("desc:'"+o.desc+"'","desc:'"+n.desc+"'");
+    }
+    if(D.T[l].ht)u=u.replace("hero_title:'"+D.T[l].ht+"'","hero_title:'"+nt[l].ht+"'");
+    if(D.T[l].st)u=u.replace("story_title:'"+D.T[l].st+"'","story_title:'"+nt[l].st+"'");
+  });
+  fc=u;
+  try{
+    var r=await fetch('https://api.github.com/repos/abdulrahman198/store/contents/index.html',{method:'PUT',headers:{'Authorization':'Bearer '+PAT,'Content-Type':'application/json'},body:JSON.stringify({message:'update via admin',content:btoa(unescape(encodeURIComponent(u))),sha:sha})});
+    var d=await r.json();
+    if(r.ok){sha=d.content.sha;toast('✅ تم الحفظ على GitHub!');D.imgs=ni;D.prices=np;D.T=nt;}
+    else toast('❌ '+( d.message||r.status),1);
+  }catch(e){toast('❌ '+e.message,1);}
+  btn.disabled=false;btn.textContent='💾 حفظ';
+}
+
+if(PAT){document.getElementById('tk').value=PAT;load();}
+else{document.getElementById('st').textContent='⚠️ أدخل Token في الإعدادات';show('cfg',document.querySelector('.nav a:last-child'));}
+</script>
+</body>
+</html>
