@@ -534,5 +534,102 @@ setLang(currentLang);
     });
 })();
 </script>
+
+<script>
+// ── Admin Edit Mode ──
+// Visit the page with ?edit=1 to enable
+if (new URLSearchParams(location.search).get('edit') === '1') {
+  window.addEventListener('load', function() {
+    // Add edit overlay styles
+    var s = document.createElement('style');
+    s.textContent = '.edit-overlay{position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;opacity:0;transition:0.2s;cursor:pointer;border-radius:8px;}.product-card-container:hover .edit-overlay{opacity:1;}.edit-overlay span{background:#e63946;color:#fff;padding:6px 14px;border-radius:20px;font-size:0.85rem;font-weight:bold;}.admin-bar{position:fixed;top:0;left:0;right:0;background:#1a1a2e;color:#f4d03f;padding:10px 20px;z-index:9999;display:flex;align-items:center;gap:12px;font-size:0.9rem;border-bottom:2px solid #e63946;}';
+    document.head.appendChild(s);
+    
+    // Admin top bar
+    var bar = document.createElement('div');
+    bar.className = 'admin-bar';
+    bar.innerHTML = '&#x270F;&#xFE0F; وضع التعديل | اضغط على صورة لتغييرها | <button onclick="saveToGitHub()" style="background:#e63946;color:#fff;border:none;border-radius:8px;padding:4px 12px;cursor:pointer;margin-right:auto;">&#x1F4BE; حفظ على GitHub</button>';
+    document.body.insertBefore(bar, document.body.firstChild);
+    document.body.style.paddingTop = '44px';
+    
+    // Add edit overlays to all product images
+    document.querySelectorAll('.product-card-container').forEach(function(card, i) {
+      var front = card.querySelector('.card-front');
+      if (!front) return;
+      front.style.position = 'relative';
+      var ov = document.createElement('div');
+      ov.className = 'edit-overlay';
+      ov.innerHTML = '<span>&#x1F4F7; تغيير الصورة</span>';
+      ov.onclick = function(e) {
+        e.stopPropagation();
+        var url = prompt('الصق رابط الصورة الجديدة:', productImages[i] || '');
+        if (url && url.trim()) {
+          productImages[i] = url.trim();
+          var img = front.querySelector('.product-img');
+          if (img) img.src = url.trim();
+          localStorage.setItem('store_images', JSON.stringify(productImages));
+        }
+      };
+      front.appendChild(ov);
+    });
+    
+    // Load any previously saved images
+    try {
+      var saved = JSON.parse(localStorage.getItem('store_images') || '[]');
+      if (saved.length) {
+        saved.forEach(function(url, i) {
+          if (url && productImages[i]) {
+            productImages[i] = url;
+          }
+        });
+        renderProducts();
+        // Re-add overlays
+        setTimeout(function() { window.location.reload(); }, 100);
+      }
+    } catch(e) {}
+  });
+}
+
+async function saveToGitHub() {
+  var token = prompt('أدخل GitHub Token:');
+  if (!token) return;
+  
+  try {
+    // Get current file
+    var r = await fetch('https://api.github.com/repos/abdulrahman198/store/contents/index.html', {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    var d = await r.json();
+    var raw = atob(d.content.replace(/\n/g,''));
+    var fileContent;
+    try { fileContent = decodeURIComponent(escape(raw)); } catch(e) { fileContent = raw; }
+    
+    // Replace each image URL in productImages array
+    productImages.forEach(function(url, i) {
+      fileContent = fileContent.replace(/productImages[i]/g, '');
+    });
+    
+    // Rebuild productImages array in file
+    var newArr = "var productImages = [\n" + productImages.map(function(u) { return "\t'" + u + "'"; }).join(",\n") + "\n];";
+    fileContent = fileContent.replace(/var productImages = [[^]]*];/s, newArr);
+    
+    var encoded = btoa(unescape(encodeURIComponent(fileContent)));
+    var res = await fetch('https://api.github.com/repos/abdulrahman198/store/contents/index.html', {
+      method: 'PUT',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: 'update: product images via admin panel', content: encoded, sha: d.sha })
+    });
+    
+    if (res.ok) {
+      alert('\u2705 تم الحفظ على GitHub بنجاح!');
+      localStorage.removeItem('store_images');
+    } else {
+      alert('\u274C فشل الحفظ: ' + res.status);
+    }
+  } catch(e) {
+    alert('خطأ: ' + e.message);
+  }
+}
+</script>
 </body>
 </html>
